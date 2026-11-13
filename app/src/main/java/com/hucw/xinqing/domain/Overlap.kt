@@ -4,7 +4,7 @@ object Overlap {
     fun findConflict(candidate: Course, existing: List<Course>): Course? =
         existing.firstOrNull { other ->
             other.id != candidate.id &&
-                other.weekday == candidate.weekday &&
+                other.weekdays.any { it in candidate.weekdays } &&
                 candidate.startMinute < other.endMinute &&
                 other.startMinute < candidate.endMinute &&
                 weeksConflict(candidate, other)

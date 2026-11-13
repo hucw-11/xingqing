@@ -1,6 +1,7 @@
 package com.hucw.xinqing.data.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -23,5 +24,6 @@ data class CourseEntity(
     val reminderMinutes: Int,
     val reminderStyle: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    @ColumnInfo(defaultValue = "''") val weekdays: String = ""
 )

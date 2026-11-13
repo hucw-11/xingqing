@@ -19,7 +19,8 @@ data class Course(
     val teacher: String,
     val color: String,
     val reminderMinutes: Int,
-    val reminderStyle: ReminderStyle
+    val reminderStyle: ReminderStyle,
+    val weekdays: List<Int> = listOf(weekday)
 ) {
     val endWeek: Int get() = startWeek + weekCount - 1
 }

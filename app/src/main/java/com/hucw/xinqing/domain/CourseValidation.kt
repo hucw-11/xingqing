@@ -6,7 +6,8 @@ object CourseValidation {
     fun validate(course: Course): String? {
         if (course.name.isBlank()) return "课程名称不能为空"
         if (course.name.length > 100) return "课程名称不能超过 100 字"
-        if (course.weekday !in 1..7) return "请选择正确的星期"
+        if (course.weekdays.isEmpty()) return "请至少选择一个上课日"
+        if (course.weekdays.any { it !in 1..7 }) return "请选择正确的星期"
         if (course.startMinute < 0 || course.startMinute >= 24 * 60) return "开始时间不合法"
         if (course.endMinute <= course.startMinute) return "结束时间必须晚于开始时间"
         if (course.endMinute > 24 * 60) return "结束时间不合法"

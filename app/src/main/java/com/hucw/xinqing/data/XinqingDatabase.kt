@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.hucw.xinqing.data.dao.AlarmDao
 import com.hucw.xinqing.data.dao.CourseDao
 import com.hucw.xinqing.data.dao.CourseExceptionDao
@@ -26,7 +28,7 @@ import com.hucw.xinqing.data.entity.ScheduledAlarmEntity
         PlanItemEntity::class,
         MealEntryEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -36,11 +38,18 @@ abstract class XinqingDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE courses ADD COLUMN weekdays TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE courses SET weekdays = CAST(weekday AS TEXT)")
+            }
+        }
+
         fun build(context: Context): XinqingDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
                 XinqingDatabase::class.java,
                 "xinqing.db"
-            ).build()
+            ).addMigrations(MIGRATION_1_2).build()
     }
 }

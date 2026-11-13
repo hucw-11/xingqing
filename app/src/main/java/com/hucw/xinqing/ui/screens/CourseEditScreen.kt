@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,7 +54,7 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf("") }
-    var weekday by remember { mutableStateOf(LocalDate.now().dayOfWeek.value) }
+    var weekdays by remember { mutableStateOf(listOf(LocalDate.now().dayOfWeek.value)) }
     var startHour by remember { mutableStateOf(8) }
     var startMinuteOfHour by remember { mutableStateOf(0) }
     var durationText by remember { mutableStateOf("90") }
@@ -74,7 +75,7 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
         if (courseId == 0L) return@LaunchedEffect
         val course = container.courseRepository.findById(courseId) ?: return@LaunchedEffect
         name = course.name
-        weekday = course.weekday
+        weekdays = course.weekdays
         startHour = course.startMinute / 60
         startMinuteOfHour = course.startMinute % 60
         durationText = (course.endMinute - course.startMinute).toString()
@@ -109,7 +110,8 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
         val course = Course(
             id = courseId,
             name = name,
-            weekday = weekday,
+            weekday = weekdays.minOrNull() ?: 1,
+            weekdays = weekdays.sorted(),
             startMinute = startMinute,
             endMinute = endMinute,
             startWeek = startWeek,
@@ -173,12 +175,20 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
             modifier = Modifier.fillMaxWidth()
         )
 
-        DropdownSelector(
-            label = "星期",
-            options = (1..7).map { it to WeekDates.dayLabel(it) },
-            selected = weekday,
-            onSelect = { weekday = it }
-        )
+        Text("上课日（可多选，同一时间）", style = MaterialTheme.typography.bodyMedium)
+        (1..7).chunked(4).forEach { days ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                days.forEach { day ->
+                    FilterChip(
+                        selected = day in weekdays,
+                        onClick = {
+                            weekdays = if (day in weekdays) weekdays - day else weekdays + day
+                        },
+                        label = { Text(WeekDates.dayLabel(day)) }
+                    )
+                }
+            }
+        }
 
         Text("开始时间", style = MaterialTheme.typography.bodyMedium)
         Row(

@@ -45,6 +45,50 @@ class CourseLogicTest {
     }
 
     @Test
+    fun `multiple weekdays expand and respect parity and end week`() {
+        val target = course(parity = WeekParity.ODD).copy(weekdays = listOf(1, 3))
+        val dates = Recurrence.occurrencesBetween(target, semester, semester.plusWeeks(5), semester)
+            .map { it.date }
+        assertEquals(listOf(semester, semester.plusDays(2), semester.plusDays(14), semester.plusDays(16)), dates)
+    }
+
+    @Test
+    fun `shared secondary weekday conflicts but disjoint days do not`() {
+        val target = course().copy(weekdays = listOf(1, 3))
+        assertEquals(target, Overlap.findConflict(course(id = 2, weekday = 3), listOf(target)))
+        assertNull(Overlap.findConflict(course(id = 2, weekday = 2), listOf(target)))
+    }
+
+    @Test
+    fun `empty or invalid weekday selection is rejected`() {
+        assertTrue(CourseValidation.validate(course().copy(weekdays = emptyList())) != null)
+        assertTrue(CourseValidation.validate(course().copy(weekdays = listOf(1, 8))) != null)
+    }
+
+    @Test
+    fun `moving one day preserves other weekday and replans both reminders`() {
+        val target = course().copy(weekdays = listOf(1, 3))
+        val exceptions = listOf(
+            CourseException(target.id, semester, ExceptionType.CANCELLED),
+            CourseException(target.id, semester, ExceptionType.MOVED, semester.plusDays(1), 600, 660)
+        )
+        val planned = ReminderPlanner.plan(listOf(target), exceptions, semester,
+            semester.atStartOfDay(ZoneId.of("Asia/Shanghai")).toInstant(), 6, 20, ZoneId.of("Asia/Shanghai"))
+        assertEquals(listOf(semester.plusDays(1), semester.plusDays(2)), planned.map { it.occurrenceDate })
+        assertEquals(Instant.parse("2026-02-24T01:45:00Z"), planned.first().triggerAt)
+    }
+
+    @Test
+    fun `overlapping lessons remain in separate lanes while adjacent lessons reuse lane`() {
+        fun occurrence(start: Int, end: Int) = CourseOccurrence(1, "测试", semester, start, end, "", "sage")
+        val a = occurrence(480, 570)
+        val b = occurrence(500, 540)
+        val c = occurrence(570, 600)
+        assertEquals(listOf(listOf(a, c), listOf(b)), TimetableLayout.lanes(listOf(c, b, a)))
+        assertEquals(listOf(emptyList<CourseOccurrence>()), TimetableLayout.lanes(emptyList()))
+    }
+
+    @Test
     fun `odd parity only matches odd weeks`() {
         val odd = course(parity = WeekParity.ODD)
         assertTrue(Recurrence.occursOn(odd, semester, semester))

@@ -13,7 +13,7 @@ object Recurrence {
     }
 
     fun occursOn(course: Course, date: LocalDate, semesterMonday: LocalDate): Boolean {
-        if (date.dayOfWeek.value != course.weekday) return false
+        if (date.dayOfWeek.value !in course.weekdays) return false
         val week = weekNumber(date, semesterMonday)
         return week in course.startWeek..course.endWeek &&
             parityMatches(course.weekParity, week)
