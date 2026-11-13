@@ -26,7 +26,7 @@ class ReminderDeliveryTest {
         val vibrator = context.getSystemService(Vibrator::class.java)
         Vibration.vibrate(context, ReminderStyle.VIBRATE)
         assertEquals(AudioAttributes.USAGE_NOTIFICATION,
-            shadowOf(vibrator).audioAttributesFromLastVibration.usage)
+            shadowOf(vibrator).audioAttributesFromLastVibration!!.usage)
     }
 
     @Test
