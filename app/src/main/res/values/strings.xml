@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">心晴</string>
+    <string name="channel_reminders">课程与计划提醒</string>
+    <string name="channel_reminders_desc">课程、每日计划与测试提醒</string>
+    <string name="test_reminder_title">心晴 · 测试提醒</string>
+    <string name="test_reminder_text">如果你看到这条通知，说明提醒链路是通的。</string>
+</resources>
