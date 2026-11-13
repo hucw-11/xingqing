@@ -10,21 +10,50 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.hucw.xinqing.R
+import com.hucw.xinqing.domain.ReminderStyle
 
 object Notifications {
-    const val CHANNEL_ID = "reminders"
+    const val CHANNEL_SOUND = "reminders_sound"
+    const val CHANNEL_VIBRATE = "reminders_vibrate"
+    const val CHANNEL_SILENT = "reminders_silent"
+    const val CHANNEL_ID = CHANNEL_SOUND
 
-    fun ensureChannel(context: Context) {
+    fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            context.getString(R.string.channel_reminders),
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = context.getString(R.string.channel_reminders_desc)
-        }
-        manager.createNotificationChannel(channel)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_SOUND,
+                context.getString(R.string.channel_sound),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = context.getString(R.string.channel_sound_desc)
+                enableVibration(true)
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_VIBRATE,
+                context.getString(R.string.channel_vibrate),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = context.getString(R.string.channel_vibrate_desc)
+                setSound(null, null)
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 600, 200, 600, 200, 900)
+            }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_SILENT,
+                context.getString(R.string.channel_silent),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = context.getString(R.string.channel_silent_desc)
+                setSound(null, null)
+                enableVibration(false)
+            }
+        )
     }
 
     fun canPost(context: Context): Boolean {
@@ -39,19 +68,35 @@ object Notifications {
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
-    fun show(context: Context, id: Int, title: String, text: String): Boolean {
+    fun show(
+        context: Context,
+        id: Int,
+        title: String,
+        text: String,
+        style: ReminderStyle = ReminderStyle.SOUND
+    ): Boolean {
         if (!canPost(context)) return false
-        ensureChannel(context)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        ensureChannels(context)
+        val channelId = when (style) {
+            ReminderStyle.SILENT -> CHANNEL_SILENT
+            ReminderStyle.VIBRATE -> CHANNEL_VIBRATE
+            ReminderStyle.SOUND -> CHANNEL_SOUND
+        }
+        val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(
+                if (style == ReminderStyle.SILENT) NotificationCompat.PRIORITY_LOW
+                else NotificationCompat.PRIORITY_HIGH
+            )
             .setAutoCancel(true)
-            .build()
+        if (style == ReminderStyle.SOUND) {
+            builder.setDefaults(NotificationCompat.DEFAULT_ALL)
+        }
         return try {
-            NotificationManagerCompat.from(context).notify(id, notification)
+            NotificationManagerCompat.from(context).notify(id, builder.build())
             true
         } catch (e: SecurityException) {
             false

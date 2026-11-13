@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,9 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.hucw.xinqing.XinqingApp
 import com.hucw.xinqing.diagnostics.Diagnostics
+import com.hucw.xinqing.domain.Recurrence
 import com.hucw.xinqing.reminder.AlarmScheduler
 import com.hucw.xinqing.reminder.Notifications
+import com.hucw.xinqing.util.TimeFormat
+import java.time.LocalDate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,6 +60,18 @@ fun HomeScreen() {
     var triggerCount by remember { mutableStateOf(Diagnostics.triggerCount(context)) }
     var events by remember { mutableStateOf(Diagnostics.events(context)) }
     var message by remember { mutableStateOf("") }
+
+    val app = context.applicationContext as XinqingApp
+    val courseFlow = remember { app.container.courseRepository.observeCourses() }
+    val courses by courseFlow.collectAsState(initial = emptyList())
+    val semester by app.container.settings.semester.collectAsState()
+    val today = LocalDate.now()
+    val todayOccurrences = remember(courses, semester, today) {
+        semester?.let { monday ->
+            courses.flatMap { course -> Recurrence.occurrencesOn(course, today, monday) }
+                .sortedBy { it.startMinute }
+        }.orEmpty()
+    }
 
     fun refresh() {
         notificationsOk = Notifications.canPost(context)
@@ -113,6 +130,46 @@ fun HomeScreen() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    "今天 · ${TimeFormat.formatDate(today)}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                when {
+                    semester == null -> Text(
+                        "先在「设置」里填写学期起始日期",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    todayOccurrences.isEmpty() -> Text(
+                        "今天没有课",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    else -> todayOccurrences.forEach { occurrence ->
+                        Text(
+                            "${TimeFormat.formatMinute(occurrence.startMinute)}–" +
+                                "${TimeFormat.formatMinute(occurrence.endMinute)}  " +
+                                occurrence.name +
+                                if (occurrence.location.isNotBlank()) {
+                                    " · ${occurrence.location}"
+                                } else {
+                                    ""
+                                },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
 
         Card(
             colors = CardDefaults.cardColors(
