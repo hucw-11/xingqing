@@ -5,6 +5,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -65,6 +72,7 @@ fun TimetableScreen(
     val exceptions by exceptionFlow.collectAsState(initial = emptyList())
     val semester by container.settings.semester.collectAsState()
     var weekOffset by rememberSaveable { mutableStateOf(0) }
+    var todayRequest by remember { mutableStateOf(0) }
     val today = LocalDate.now()
 
     Box(Modifier.fillMaxSize()) {
@@ -83,7 +91,7 @@ fun TimetableScreen(
                     modifier = Modifier.weight(1f)
                 )
                 TextButton(onClick = { weekOffset -= 1 }) { Text("上周") }
-                TextButton(onClick = { weekOffset = 0 }) { Text("本周") }
+                TextButton(onClick = { weekOffset = 0; todayRequest++ }) { Text("今天") }
                 TextButton(onClick = { weekOffset += 1 }) { Text("下周") }
             }
 
@@ -114,9 +122,9 @@ fun TimetableScreen(
                         Recurrence.occurrencesOn(it, date, semesterValue, exceptions)
                     }
                 }
-                Text("左右滑动查看整周 · 上下滑动查看时间 · 点击课程调课/停课",
+                Text("默认显示整周；点课程查看详情，放大后可滑动查看",
                     style = MaterialTheme.typography.bodySmall)
-                WeekTimeline(days, onOccurrence)
+                WeekTimeline(days, todayRequest, onOccurrence)
                 HorizontalDivider()
                 Text("全部课程", style = MaterialTheme.typography.titleMedium)
                 if (courses.isEmpty()) {
@@ -160,70 +168,111 @@ fun TimetableScreen(
 }
 
 @Composable
-private fun WeekTimeline(
+internal fun WeekTimeline(
     days: List<Pair<LocalDate, List<CourseOccurrence>>>,
+    todayRequest: Int,
     onClickOccurrence: (Long, LocalDate) -> Unit
 ) {
+    var compact by rememberSaveable { mutableStateOf(true) }
+    var selected by remember { mutableStateOf<CourseOccurrence?>(null) }
     val all = days.flatMap { it.second }
     val startHour = minOf(7, (all.minOfOrNull { it.startMinute } ?: 420) / 60)
     val endHour = maxOf(22, ((all.maxOfOrNull { it.endMinute } ?: 1320) + 59) / 60)
-    val minuteHeight = 1.5f
-    val gridHeight = ((endHour - startHour) * 60 * minuteHeight).dp
-    val dayLanes = days.map { TimetableLayout.lanes(it.second) }
-    Column(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-        Row {
-            Box(Modifier.width(52.dp).height(52.dp), contentAlignment = Alignment.Center) {
-                Text("时间", style = MaterialTheme.typography.labelMedium)
-            }
-            days.forEachIndexed { index, (date, _) ->
-                val isToday = date == LocalDate.now()
-                Box(
-                    Modifier.width((124 * dayLanes[index].size).dp).height(52.dp)
-                        .background(if (isToday) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("${WeekDates.dayLabel(date.dayOfWeek.value)} ${date.monthValue}/${date.dayOfMonth}" +
-                        if (isToday) " · 今天" else "", fontWeight = FontWeight.Bold)
-                }
-            }
+    val horizontal = rememberScrollState()
+    val vertical = rememberScrollState()
+    val density = LocalDensity.current
+    Column {
+        TextButton(onClick = { compact = !compact }) {
+            Text(if (compact) "放大查看" else "整周总览")
         }
-        Row(Modifier.height(420.dp).verticalScroll(rememberScrollState())) {
-            Box(Modifier.width(52.dp).height(gridHeight + 24.dp)) {
-                (startHour..endHour).forEach { hour ->
-                    Text("%02d:00".format(hour),
-                        modifier = Modifier.offset(y = ((hour - startHour) * 90).dp),
-                        style = MaterialTheme.typography.labelSmall)
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val timeWidth = 40.dp
+            val dayWidth = if (compact) (maxWidth - timeWidth) / 7 else 112.dp
+            val viewportHeight = 380.dp
+            val minuteHeight = if (compact) 356f / ((endHour - startHour) * 60) else 1f
+            val gridHeight = ((endHour - startHour) * 60 * minuteHeight + 24).dp
+            val xOffset = with(density) { horizontal.value.toDp() }
+            val yOffset = with(density) { vertical.value.toDp() }
+            LaunchedEffect(todayRequest, compact, days.first().first) {
+                if (compact) {
+                    horizontal.scrollTo(0)
+                    vertical.scrollTo(0)
+                } else if (todayRequest > 0) {
+                    val index = days.indexOfFirst { it.first == LocalDate.now() }
+                    if (index >= 0) {
+                        horizontal.animateScrollTo(with(density) { (dayWidth * index).roundToPx() })
+                        val now = java.time.LocalTime.now()
+                        val minute = (now.hour * 60 + now.minute - startHour * 60 - 60).coerceAtLeast(0)
+                        vertical.animateScrollTo(with(density) { (minute * minuteHeight).dp.roundToPx() })
+                    }
                 }
             }
-            days.forEachIndexed { index, (date, _) ->
-                Box(Modifier.width((124 * dayLanes[index].size).dp).height(gridHeight + 24.dp)
-                    .background(if (date == LocalDate.now()) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
-                        else MaterialTheme.colorScheme.surface)) {
-                    (startHour..endHour).forEach { hour ->
-                        HorizontalDivider(Modifier.offset(y = ((hour - startHour) * 90).dp))
+            Column {
+                Row {
+                    Box(Modifier.width(timeWidth).height(44.dp), contentAlignment = Alignment.Center) {
+                        Text("时间", fontSize = 10.sp)
                     }
-                    dayLanes[index].forEachIndexed { lane, occurrences ->
-                        occurrences.forEach { occurrence ->
-                            val tint = courseColor(occurrence.color)
-                            Row(
-                                Modifier.offset(x = (lane * 124 + 2).dp,
-                                    y = ((occurrence.startMinute - startHour * 60) * minuteHeight).dp)
-                                    .width(120.dp)
-                                    .height(((occurrence.endMinute - occurrence.startMinute) * minuteHeight).dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable { onClickOccurrence(occurrence.courseId, occurrence.date) }
-                            ) {
-                                Box(Modifier.width(4.dp).fillMaxHeight().background(tint))
-                                Column(Modifier.padding(5.dp)) {
-                                    Text(occurrence.name, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    Text("${TimeFormat.formatMinute(occurrence.startMinute)}–${TimeFormat.formatMinute(occurrence.endMinute)}",
-                                        fontSize = 11.sp, maxLines = 1)
-                                    if (occurrence.location.isNotBlank()) {
-                                        Text(occurrence.location, fontSize = 12.sp, maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis)
+                    Box(Modifier.weight(1f).height(44.dp).clipToBounds()) {
+                        Row(Modifier.offset(x = -xOffset).wrapContentWidth(Alignment.Start, unbounded = true).width(dayWidth * 7)) {
+                            days.forEach { (date, _) ->
+                                val today = date == LocalDate.now()
+                                Column(Modifier.width(dayWidth).height(44.dp)
+                                    .background(if (today) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceVariant),
+                                    horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(WeekDates.dayLabel(date.dayOfWeek.value), fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold, maxLines = 1)
+                                    Text("${date.monthValue}/${date.dayOfMonth}", fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+                Row(Modifier.height(viewportHeight)) {
+                    // Only the course area scrolls horizontally; the time ruler stays at the left.
+                    Box(Modifier.width(timeWidth).height(viewportHeight).clipToBounds()) {
+                        (startHour..endHour).forEach { hour ->
+                            Text("%02d:00".format(hour),
+                                Modifier.offset(y = ((hour - startHour) * 60 * minuteHeight).dp - yOffset),
+                                fontSize = 9.sp, maxLines = 1)
+                        }
+                    }
+                    Box(Modifier.weight(1f).height(viewportHeight).testTag("week-grid")
+                        .horizontalScroll(horizontal).verticalScroll(vertical)) {
+                        Row(Modifier.width(dayWidth * 7).height(gridHeight)) {
+                            days.forEach { (date, occurrences) ->
+                                val lanes = TimetableLayout.lanes(occurrences)
+                                val laneWidth = dayWidth / lanes.size
+                                Box(Modifier.width(dayWidth).height(gridHeight)
+                                    .background(if (date == LocalDate.now())
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                        else MaterialTheme.colorScheme.surface)) {
+                                    (startHour..endHour).forEach { hour ->
+                                        HorizontalDivider(Modifier.offset(y = ((hour - startHour) * 60 * minuteHeight).dp))
+                                    }
+                                    lanes.forEachIndexed { lane, lessons ->
+                                        lessons.forEach { lesson ->
+                                            Box(Modifier.offset(x = laneWidth * lane + 1.dp,
+                                                y = ((lesson.startMinute - startHour * 60) * minuteHeight).dp)
+                                                .width((laneWidth - 2.dp).coerceAtLeast(1.dp))
+                                                .height(((lesson.endMinute - lesson.startMinute) * minuteHeight).dp)
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                .clickable { selected = lesson }) {
+                                                Box(Modifier.width(3.dp).fillMaxHeight().background(courseColor(lesson.color)))
+                                                Column(Modifier.padding(start = 4.dp, top = 1.dp, end = 1.dp)) {
+                                                    Text(lesson.name, fontSize = if (compact) 10.sp else 13.sp,
+                                                        lineHeight = if (compact) 11.sp else 16.sp,
+                                                        maxLines = if (compact) 3 else 2,
+                                                        overflow = TextOverflow.Ellipsis)
+                                                    if (!compact) {
+                                                        Text("${TimeFormat.formatMinute(lesson.startMinute)}–${TimeFormat.formatMinute(lesson.endMinute)}",
+                                                            fontSize = 10.sp, maxLines = 1)
+                                                        Text(lesson.location, fontSize = 11.sp, maxLines = 1)
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -232,6 +281,19 @@ private fun WeekTimeline(
                 }
             }
         }
+    }
+    selected?.let { lesson ->
+        AlertDialog(
+            onDismissRequest = { selected = null },
+            title = { Text(lesson.name) },
+            text = { Text("${lesson.date}  ${WeekDates.dayLabel(lesson.date.dayOfWeek.value)}\n" +
+                "${TimeFormat.formatMinute(lesson.startMinute)}–${TimeFormat.formatMinute(lesson.endMinute)}\n${lesson.location}") },
+            confirmButton = { TextButton(onClick = {
+                selected = null
+                onClickOccurrence(lesson.courseId, lesson.date)
+            }) { Text("调课 / 停课") } },
+            dismissButton = { TextButton(onClick = { selected = null }) { Text("关闭") } }
+        )
     }
 }
 private fun parityLabel(parity: WeekParity): String = when (parity) {

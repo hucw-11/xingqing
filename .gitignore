@@ -6,3 +6,7 @@ local.properties
 *.hprof
 .DS_Store
 captures/
+.local/
+*.p12
+*.keystore
+*.jks

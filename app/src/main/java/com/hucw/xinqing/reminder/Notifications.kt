@@ -3,6 +3,10 @@ package com.hucw.xinqing.reminder
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import com.hucw.xinqing.MainActivity
+import com.hucw.xinqing.diagnostics.Diagnostics
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -74,7 +78,8 @@ object Notifications {
         id: Int,
         title: String,
         text: String,
-        style: ReminderStyle = ReminderStyle.SOUND
+        style: ReminderStyle = ReminderStyle.SOUND,
+        destination: String = "today"
     ): Boolean {
         if (!canPost(context)) return false
         ensureChannels(context)
@@ -83,6 +88,16 @@ object Notifications {
             ReminderStyle.VIBRATE -> CHANNEL_VIBRATE
             ReminderStyle.SOUND -> CHANNEL_SOUND
         }
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val channel = manager?.getNotificationChannel(channelId)
+        if (channel?.importance == NotificationManager.IMPORTANCE_NONE) {
+            Diagnostics.record(context, "通知未发出：当前提醒渠道被关闭")
+            return false
+        }
+        val open = Intent(context, MainActivity::class.java)
+            .setAction("com.hucw.xinqing.OPEN_$destination")
+            .putExtra("destination", destination)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -93,6 +108,8 @@ object Notifications {
                 else NotificationCompat.PRIORITY_HIGH
             )
             .setAutoCancel(true)
+            .setContentIntent(PendingIntent.getActivity(context, id, open,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         if (style == ReminderStyle.SOUND) {
             builder.setDefaults(NotificationCompat.DEFAULT_ALL)
             builder.setVibrate(longArrayOf(0, 500, 250, 500, 250, 800))
@@ -102,7 +119,8 @@ object Notifications {
         }
         return try {
             NotificationManagerCompat.from(context).notify(id, builder.build())
-            Vibration.vibrate(context, style)
+            if (channel?.shouldVibrate() == true) Vibration.vibrate(context, style)
+            Diagnostics.record(context, "提醒渠道振动：${if (channel?.shouldVibrate() == true) "开启，已按通知用途请求" else "关闭"}")
             true
         } catch (e: SecurityException) {
             false

@@ -12,11 +12,14 @@ android {
         applicationId = "com.hucw.xinqing"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     buildTypes {
+        debug {
+            signingConfig = null // CI builds unsigned; scripts/sign-apk.ps1 uses the persistent local key.
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -74,5 +77,7 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.12.2")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

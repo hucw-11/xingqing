@@ -6,6 +6,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -33,10 +34,13 @@ private val tabs = listOf(
 )
 
 @Composable
-fun XinqingNavHost() {
+fun XinqingNavHost(requestedDestination: Pair<String, Long>? = null) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+    LaunchedEffect(requestedDestination) {
+        requestedDestination?.let { navController.navigateTab(it.first) }
+    }
 
     Scaffold(
         bottomBar = {

@@ -48,7 +48,8 @@ class CourseReminderReceiver : BroadcastReceiver() {
                     courseId.toInt(),
                     title,
                     text,
-                    course.reminderStyle
+                    course.reminderStyle,
+                    destination = "timetable"
                 )
                 app.container.alarmScheduler.rescheduleAll()
             } finally {

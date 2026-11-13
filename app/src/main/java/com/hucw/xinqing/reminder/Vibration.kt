@@ -5,6 +5,8 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.os.VibrationAttributes
+import android.media.AudioAttributes
 import com.hucw.xinqing.domain.ReminderStyle
 
 object Vibration {
@@ -20,7 +22,15 @@ object Vibration {
         } ?: return
         if (!vibrator.hasVibrator()) return
         try {
-            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            val effect = VibrationEffect.createWaveform(pattern, -1)
+            if (Build.VERSION.SDK_INT >= 33) {
+                vibrator.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_NOTIFICATION))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(effect, AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+            }
         } catch (e: SecurityException) {
             // 缺少 VIBRATE 权限时会走到这里
         }

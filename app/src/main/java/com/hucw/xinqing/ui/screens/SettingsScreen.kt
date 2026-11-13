@@ -65,7 +65,7 @@ fun SettingsScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            "设置 · 心晴 1.1",
+            "设置 · 心晴 1.2",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
