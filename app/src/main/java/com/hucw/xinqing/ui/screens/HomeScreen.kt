@@ -41,8 +41,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.hucw.xinqing.XinqingApp
 import com.hucw.xinqing.diagnostics.Diagnostics
 import com.hucw.xinqing.domain.Recurrence
+import com.hucw.xinqing.domain.ReminderStyle
 import com.hucw.xinqing.reminder.AlarmScheduler
 import com.hucw.xinqing.reminder.Notifications
+import com.hucw.xinqing.reminder.Vibration
 import com.hucw.xinqing.util.TimeFormat
 import java.time.LocalDate
 import java.text.SimpleDateFormat
@@ -231,6 +233,16 @@ fun HomeScreen() {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("10 秒后快速测试")
+        }
+
+        OutlinedButton(
+            onClick = {
+                Vibration.vibrate(context, ReminderStyle.VIBRATE)
+                message = "已触发振动；如果没有感觉，请检查系统振动设置"
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("振动测试")
         }
 
         if (!notificationsOk || !channelOk) {

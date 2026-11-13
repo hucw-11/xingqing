@@ -102,6 +102,7 @@ object Notifications {
         }
         return try {
             NotificationManagerCompat.from(context).notify(id, builder.build())
+            Vibration.vibrate(context, style)
             true
         } catch (e: SecurityException) {
             false
