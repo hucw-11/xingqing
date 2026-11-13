@@ -39,8 +39,8 @@ object Notifications {
         return NotificationManagerCompat.from(context).areNotificationsEnabled()
     }
 
-    fun show(context: Context, id: Int, title: String, text: String) {
-        if (!canPost(context)) return
+    fun show(context: Context, id: Int, title: String, text: String): Boolean {
+        if (!canPost(context)) return false
         ensureChannel(context)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -50,6 +50,11 @@ object Notifications {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
-        NotificationManagerCompat.from(context).notify(id, notification)
+        return try {
+            NotificationManagerCompat.from(context).notify(id, notification)
+            true
+        } catch (e: SecurityException) {
+            false
+        }
     }
 }
