@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +40,7 @@ import com.hucw.xinqing.domain.Overlap
 import com.hucw.xinqing.domain.ReminderStyle
 import com.hucw.xinqing.domain.WeekDates
 import com.hucw.xinqing.domain.WeekParity
+import com.hucw.xinqing.ui.components.NumberWheel
 import com.hucw.xinqing.ui.theme.courseColorOptions
 import com.hucw.xinqing.util.TimeFormat
 import kotlinx.coroutines.launch
@@ -51,8 +54,9 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
 
     var name by remember { mutableStateOf("") }
     var weekday by remember { mutableStateOf(LocalDate.now().dayOfWeek.value) }
-    var startText by remember { mutableStateOf("08:00") }
-    var endText by remember { mutableStateOf("09:30") }
+    var startHour by remember { mutableStateOf(8) }
+    var startMinuteOfHour by remember { mutableStateOf(0) }
+    var durationText by remember { mutableStateOf("90") }
     var startWeekText by remember { mutableStateOf("1") }
     var weekCountText by remember { mutableStateOf("16") }
     var location by remember { mutableStateOf("") }
@@ -71,8 +75,9 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
         val course = container.courseRepository.findById(courseId) ?: return@LaunchedEffect
         name = course.name
         weekday = course.weekday
-        startText = TimeFormat.formatMinute(course.startMinute)
-        endText = TimeFormat.formatMinute(course.endMinute)
+        startHour = course.startMinute / 60
+        startMinuteOfHour = course.startMinute % 60
+        durationText = (course.endMinute - course.startMinute).toString()
         startWeekText = course.startWeek.toString()
         weekCountText = course.weekCount.toString()
         location = course.location
@@ -84,24 +89,29 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
     }
 
     fun save(ignoreConflict: Boolean) {
-        val start = TimeFormat.parseMinute(startText)
-        val end = TimeFormat.parseMinute(endText)
-        val startWeek = startWeekText.toIntOrNull()
-        val weekCount = weekCountText.toIntOrNull()
-        if (start == null || end == null) {
-            error = "时间格式应为 HH:mm，例如 08:00"
+        val duration = durationText.toIntOrNull()
+        if (duration == null || duration <= 0) {
+            error = "持续时间请填写大于 0 的分钟数"
             return
         }
+        val startWeek = startWeekText.toIntOrNull()
+        val weekCount = weekCountText.toIntOrNull()
         if (startWeek == null || weekCount == null) {
             error = "周次请填写数字"
+            return
+        }
+        val startMinute = startHour * 60 + startMinuteOfHour
+        val endMinute = startMinute + duration
+        if (endMinute > 24 * 60) {
+            error = "结束时间超出当天范围，请缩短持续时间"
             return
         }
         val course = Course(
             id = courseId,
             name = name,
             weekday = weekday,
-            startMinute = start,
-            endMinute = end,
+            startMinute = startMinute,
+            endMinute = endMinute,
             startWeek = startWeek,
             weekCount = weekCount,
             weekParity = parity,
@@ -135,6 +145,13 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
         }
     }
 
+    val durationValue = durationText.toIntOrNull()
+    val startMinuteValue = startHour * 60 + startMinuteOfHour
+    val endPreview = durationValue
+        ?.takeIf { it > 0 }
+        ?.let { startMinuteValue + it }
+        ?.takeIf { it <= 24 * 60 }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -163,22 +180,40 @@ fun CourseEditScreen(courseId: Long, onDone: () -> Unit) {
             onSelect = { weekday = it }
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = startText,
-                onValueChange = { startText = it },
-                label = { Text("开始时间") },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
+        Text("开始时间", style = MaterialTheme.typography.bodyMedium)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NumberWheel(
+                value = startHour,
+                range = 0..23,
+                onValueChange = { startHour = it },
+                modifier = Modifier.weight(1f).height(120.dp)
             )
-            OutlinedTextField(
-                value = endText,
-                onValueChange = { endText = it },
-                label = { Text("结束时间") },
-                singleLine = true,
-                modifier = Modifier.weight(1f)
+            Text("时")
+            NumberWheel(
+                value = startMinuteOfHour,
+                range = 0..59,
+                onValueChange = { startMinuteOfHour = it },
+                modifier = Modifier.weight(1f).height(120.dp)
             )
+            Text("分")
         }
+
+        OutlinedTextField(
+            value = durationText,
+            onValueChange = { durationText = it },
+            label = { Text("持续分钟数") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            "结束时间：" + (endPreview?.let { TimeFormat.formatMinute(it) } ?: "—"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(

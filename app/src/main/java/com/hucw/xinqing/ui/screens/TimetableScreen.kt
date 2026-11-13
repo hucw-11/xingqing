@@ -49,12 +49,15 @@ import java.time.LocalDate
 fun TimetableScreen(
     onAdd: () -> Unit,
     onEdit: (Long) -> Unit,
+    onOccurrence: (Long, LocalDate) -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val container = remember { (context.applicationContext as XinqingApp).container }
     val courseFlow = remember { container.courseRepository.observeCourses() }
     val courses by courseFlow.collectAsState(initial = emptyList())
+    val exceptionFlow = remember { container.courseRepository.observeExceptions() }
+    val exceptions by exceptionFlow.collectAsState(initial = emptyList())
     val semester by container.settings.semester.collectAsState()
     var weekOffset by rememberSaveable { mutableStateOf(0) }
     val today = LocalDate.now()
@@ -107,9 +110,9 @@ fun TimetableScreen(
                     for (day in 0..6) {
                         val date = monday.plusDays(day.toLong())
                         val occurrences = courses
-                            .flatMap { Recurrence.occurrencesOn(it, date, semesterValue) }
+                            .flatMap { Recurrence.occurrencesOn(it, date, semesterValue, exceptions) }
                             .sortedBy { it.startMinute }
-                        DayColumn(date, day + 1, occurrences, onEdit)
+                        DayColumn(date, day + 1, occurrences, onOccurrence)
                     }
                 }
                 HorizontalDivider()
@@ -159,7 +162,7 @@ private fun DayColumn(
     date: LocalDate,
     weekday: Int,
     occurrences: List<CourseOccurrence>,
-    onEdit: (Long) -> Unit
+    onClickOccurrence: (Long, LocalDate) -> Unit
 ) {
     val isToday = date == LocalDate.now()
     Column(
@@ -191,7 +194,7 @@ private fun DayColumn(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
                         .background(courseColor(occurrence.color).copy(alpha = 0.22f))
-                        .clickable { onEdit(occurrence.courseId) }
+                        .clickable { onClickOccurrence(occurrence.courseId, occurrence.date) }
                         .padding(6.dp)
                 ) {
                     Text(

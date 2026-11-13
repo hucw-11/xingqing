@@ -29,6 +29,7 @@ object Notifications {
             ).apply {
                 description = context.getString(R.string.channel_sound_desc)
                 enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 800)
             }
         )
         manager.createNotificationChannel(
@@ -40,7 +41,7 @@ object Notifications {
                 description = context.getString(R.string.channel_vibrate_desc)
                 setSound(null, null)
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 600, 200, 600, 200, 900)
+                vibrationPattern = longArrayOf(0, 800, 300, 800, 300, 1200)
             }
         )
         manager.createNotificationChannel(
@@ -94,6 +95,10 @@ object Notifications {
             .setAutoCancel(true)
         if (style == ReminderStyle.SOUND) {
             builder.setDefaults(NotificationCompat.DEFAULT_ALL)
+            builder.setVibrate(longArrayOf(0, 500, 250, 500, 250, 800))
+        }
+        if (style == ReminderStyle.VIBRATE) {
+            builder.setVibrate(longArrayOf(0, 800, 300, 800, 300, 1200))
         }
         return try {
             NotificationManagerCompat.from(context).notify(id, builder.build())

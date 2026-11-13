@@ -54,3 +54,12 @@ fun CourseExceptionEntity.toModel(): CourseException = CourseException(
     newStartMinute = newStartMinute,
     newEndMinute = newEndMinute
 )
+
+fun CourseException.toEntity(): CourseExceptionEntity = CourseExceptionEntity(
+    courseId = courseId,
+    originalDate = originalDate.toString(),
+    type = type.name,
+    newDate = newDate?.toString(),
+    newStartMinute = newStartMinute,
+    newEndMinute = newEndMinute
+)

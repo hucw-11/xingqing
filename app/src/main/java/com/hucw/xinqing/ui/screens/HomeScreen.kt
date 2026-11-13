@@ -64,12 +64,15 @@ fun HomeScreen() {
     val app = context.applicationContext as XinqingApp
     val courseFlow = remember { app.container.courseRepository.observeCourses() }
     val courses by courseFlow.collectAsState(initial = emptyList())
+    val exceptionFlow = remember { app.container.courseRepository.observeExceptions() }
+    val exceptions by exceptionFlow.collectAsState(initial = emptyList())
     val semester by app.container.settings.semester.collectAsState()
     val today = LocalDate.now()
-    val todayOccurrences = remember(courses, semester, today) {
+    val todayOccurrences = remember(courses, exceptions, semester, today) {
         semester?.let { monday ->
-            courses.flatMap { course -> Recurrence.occurrencesOn(course, today, monday) }
-                .sortedBy { it.startMinute }
+            courses.flatMap { course ->
+                Recurrence.occurrencesOn(course, today, monday, exceptions)
+            }.sortedBy { it.startMinute }
         }.orEmpty()
     }
 

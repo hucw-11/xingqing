@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.hucw.xinqing.ui.screens.AdjustCourseScreen
 import com.hucw.xinqing.ui.screens.CourseEditScreen
 import com.hucw.xinqing.ui.screens.HomeScreen
 import com.hucw.xinqing.ui.screens.PlaceholderScreen
@@ -64,6 +65,9 @@ fun XinqingNavHost() {
                 TimetableScreen(
                     onAdd = { navController.navigate("course/0") },
                     onEdit = { id -> navController.navigate("course/$id") },
+                    onOccurrence = { id, date ->
+                        navController.navigate("adjust/$id/$date")
+                    },
                     onOpenSettings = { navController.navigateTab("settings") }
                 )
             }
@@ -75,6 +79,22 @@ fun XinqingNavHost() {
                 CourseEditScreen(
                     courseId = id,
                     onDone = { navController.popBackStack() }
+                )
+            }
+            composable(
+                "adjust/{courseId}/{date}",
+                arguments = listOf(
+                    navArgument("courseId") { type = NavType.LongType },
+                    navArgument("date") { type = NavType.StringType }
+                )
+            ) { entry ->
+                val id = entry.arguments?.getLong("courseId") ?: 0L
+                val date = entry.arguments?.getString("date") ?: ""
+                AdjustCourseScreen(
+                    courseId = id,
+                    originalDateText = date,
+                    onDone = { navController.popBackStack() },
+                    onEditCourse = { navController.navigate("course/$id") }
                 )
             }
             composable("review") {

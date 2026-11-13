@@ -8,6 +8,7 @@ import com.hucw.xinqing.domain.Course
 import com.hucw.xinqing.domain.CourseException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 class CourseRepository(
     private val courseDao: CourseDao,
@@ -41,4 +42,16 @@ class CourseRepository(
 
     suspend fun exceptions(): List<CourseException> =
         exceptionDao.getAllOnce().map { it.toModel() }
+
+    fun observeExceptions(): Flow<List<CourseException>> =
+        exceptionDao.observeAll().map { list -> list.map { it.toModel() } }
+
+    suspend fun replaceExceptions(
+        courseId: Long,
+        originalDate: LocalDate,
+        replacements: List<CourseException>
+    ) {
+        exceptionDao.deleteForOccurrence(courseId, originalDate.toString())
+        replacements.forEach { exceptionDao.insert(it.toEntity()) }
+    }
 }
